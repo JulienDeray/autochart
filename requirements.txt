@@ -1,0 +1,18 @@
+# Exact versions autochart 1.1.0 was developed and benchmarked with (Python 3.12, CPU).
+# Install:   pip install -r requirements.txt && pip install --no-deps basic-pitch==0.4.0 && pip install --no-deps -e .
+numpy==1.26.4
+scipy==1.17.1
+librosa==0.11.0
+soundfile==0.14.0
+numba==0.60.0
+llvmlite==0.43.0
+torch==2.2.2
+torchaudio==2.2.2
+demucs==4.0.1
+onnxruntime==1.23.2
+mir-eval==0.8.2
+pretty-midi==0.2.11.post0
+resampy==0.4.2
+scikit-learn
+setuptools==80.10.2
+mido==1.3.3
