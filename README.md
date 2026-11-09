@@ -32,7 +32,7 @@ The full story, with what each stage fixes and why: **[docs/HOW_IT_WORKS.md](doc
 Python 3.10–3.12 and [ffmpeg](https://ffmpeg.org) on your `PATH` (or `FFMPEG=/path/to/ffmpeg`).
 
 ```bash
-git clone <this repo> autochart && cd autochart
+git clone https://github.com/JulienDeray/autochart.git && cd autochart
 python -m venv .venv && source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt                         # exact tested versions (CPU)
 pip install --no-deps basic-pitch==0.4.0                # see note below
