@@ -14,6 +14,8 @@ must be a local peak. Then:
   "boom" chord of a riff. Basic Pitch keeps firing while that chord rings, and the filler buried the hit.
   Around each stab, weak notes are removed - only where the guitar is ringing, i.e. shows no 8th-note
   picking pulse, so genuine chugs between accents survive.
+* **Smears**: a pitch-only note one 16th before a much louder real attack is the same hit seen twice;
+  only the attack is kept.
 * For each kept note: how long the guitar keeps ringing (sustains), and whether it is accented.
 """
 from __future__ import annotations
@@ -79,6 +81,7 @@ def detect_events(y_g: np.ndarray, sr: int, grid: Grid, bp_onsets, p: Params) ->
                        "abs": float(absv[i]), "r8": float(ratio8[i]), "stab": stab})
 
     events = _clean_around_stabs(events, p)
+    events = _drop_smears(events, p)
     _measure_ring(events, et, rms)
     _mark_accents(events)
     return events
@@ -97,6 +100,21 @@ def _clean_around_stabs(events, p: Params):
                     start < e["tick"] < s["tick"] or s["tick"] < e["tick"] < end):
                 drop.add(id(e))
     return [e for e in events if id(e) not in drop]
+
+
+def _drop_smears(events, p: Params):
+    """A Basic-Pitch-only note (no flux attack) one 16th before a clearly louder real attack that lands on
+    an off-16th is the same hit seen twice: the pitch model fires on the chord, the guitar lands just after
+    the beat. Charting both gave a double hit on the first chord of a riff. Keep the real attack."""
+    keep = []
+    for j, e in enumerate(events):
+        nx = events[j + 1] if j + 1 < len(events) else None
+        if (not e["flux"] and nx is not None and nx["flux"] and nx["mc"] == 3
+                and 0 < nx["tick"] - e["tick"] <= RES // 4
+                and nx["abs"] >= p.smear_ratio * max(e["abs"], 1e-6)):
+            continue
+        keep.append(e)
+    return keep
 
 
 def _measure_ring(events, et, rms):

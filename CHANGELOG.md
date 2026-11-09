@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0
+- No more double hit on syncopated big chords: when Basic Pitch reports a note on the beat and the guitar's
+  real attack lands one 16th later (and is clearly louder), only the attack is kept. Found by playtesting
+  the first chord of a riff that lands just after the beat. Benchmark mean onset F1 moves by -0.006
+  (official charters often quantize such hits onto the beat); kept because it matches the recording.
+
 ## 1.1.0
 First public release.
 

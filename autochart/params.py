@@ -22,6 +22,7 @@ class Params:
     stab_level: float = 1.5                            # attack >= 1.5 x the song's p95 flux = a "big stab"
     stab_floor: float = 0.3                            # notes weaker than 0.3 x the stab are filler...
     stab_ring_ratio: float = 1.6                       # ...if the guitar shows no 8th picking pulse there
+    smear_ratio: float = 1.8                           # pitch-only note a 16th before a 1.8x louder attack = same hit
     # --- pitch
     root_lo: int = 28                                  # E1: lowest candidate root (detuned guitars)
     root_hi: int = 67                                  # G4

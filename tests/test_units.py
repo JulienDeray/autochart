@@ -110,3 +110,12 @@ def test_chart_roundtrip_and_sng(tmp_path):
     first = dst.read_bytes()
     sng.pack_folder(str(folder), str(dst))
     assert dst.read_bytes() == first                               # packing is deterministic
+
+
+def test_smear_before_real_attack_is_dropped():
+    from autochart.onsets import _drop_smears
+    from autochart.params import DEFAULT, RES
+    ev = lambda tick, flux, ab, mc: {"tick": tick, "flux": flux, "abs": ab, "mc": mc}  # noqa: E731
+    events = [ev(0, False, 0.3, 1), ev(RES // 4, True, 0.9, 3), ev(RES, False, 0.3, 1), ev(RES + RES // 2, True, 0.9, 2)]
+    out = _drop_smears(events, DEFAULT)
+    assert [e["tick"] for e in out] == [RES // 4, RES, RES + RES // 2]

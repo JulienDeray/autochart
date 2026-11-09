@@ -84,6 +84,10 @@ ringing. Ringing versus picking is measured as the ratio of flux on beats/8ths t
 between: picked 8th-note chugs show a strong pulse, held chords don't. Without that guard, the cleanup
 also deleted real chugs and cost 0.14 F1 on one benchmark song. Stabs are always charted as chords.
 
+A related artefact: on a chord that lands just after the beat, Basic Pitch often fires on the beat while
+the guitar's real attack comes one 16th later, and both became notes (a double hit). A pitch-only note
+followed one 16th later by an attack at least 1.8 × louder is now dropped, keeping the attack.
+
 For every remaining note the guitar stem's level is followed until it drops 9 dB below the attack (how
 long it rings), and notes clearly louder than their neighbours are marked as accents.
 
