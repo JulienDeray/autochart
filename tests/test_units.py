@@ -119,3 +119,45 @@ def test_smear_before_real_attack_is_dropped():
     events = [ev(0, False, 0.3, 1), ev(RES // 4, True, 0.9, 3), ev(RES, False, 0.3, 1), ev(RES + RES // 2, True, 0.9, 2)]
     out = _drop_smears(events, DEFAULT)
     assert [e["tick"] for e in out] == [RES // 4, RES, RES + RES // 2]
+
+
+def test_guide_strums_and_consensus():
+    from autochart import guide
+    p1 = [{"lane": 0, "down": 1.00, "up": 1.1}, {"lane": 1, "down": 1.02, "up": 1.3}, {"lane": 2, "down": 2.0, "up": 2.1}]
+    p2 = [{"lane": 1, "down": 1.03, "up": 1.2}, {"lane": 0, "down": 1.04, "up": 1.2}, {"lane": 4, "down": 3.0, "up": 3.1}]
+    s1 = guide.strums(p1)
+    assert len(s1) == 2 and s1[0]["lanes"] == {0, 1}
+    cons = guide.consensus([s1, guide.strums(p2)])
+    assert len(cons) == 1 and cons[0]["lanes"] == [0, 1] and abs(cons[0]["t"] - 1.015) < 1e-9
+
+
+def test_guide_windows():
+    from autochart import guide
+    bar2 = 8 * 0.5  # 120 BPM
+    held = [{"lane": 1, "down": t, "up": t + 1.5} for t in (0.0, 2.0)]  # 2 long chords in bars 1-2
+    riff = [{"lane": i % 5, "down": bar2 + 0.25 * i, "up": bar2 + 0.25 * i + 0.1} for i in range(8)]
+    taps = {"passes": [{"events": held + riff}, {"events": held + riff}]}
+    g = guide.build_guide(taps, 120.0)
+    assert g["held"] == [[0.0, bar2]] and g["style"] == [[bar2, 2 * bar2]]
+
+
+def test_mark_muted_needs_opt_in_and_pulse():
+    import dataclasses
+    ev = [{"midi": 40, "tick": k * RES // 2, "r8": 4.0} for k in range(6)]
+    assert not any(e.get("muted") for e in arrange.mark_muted([dict(e) for e in ev], DEFAULT))
+    p = dataclasses.replace(DEFAULT, muted_singles=True)
+    assert all(e.get("muted") for e in arrange.mark_muted([dict(e) for e in ev], p))
+    weak = [dict(e, r8=1.2) for e in ev]
+    assert not any(e.get("muted") for e in arrange.mark_muted(weak, p))
+
+
+def test_held_lanes_one_map_per_song():
+    from autochart import guide
+    order = [65, 63, 62, 60] * 3  # F Eb D C loop
+    ev = [{"midi": m, "root_pc": m % 12, "lane": 0, "width": 1} for m in order]
+    guide.held_lanes(ev)
+    lanes = {e["midi"]: e["lane"] for e in ev}
+    assert lanes == {60: 0, 62: 1, 63: 2, 65: 3}
+    assert all(e["width"] == 2 for e in ev)
+    for e in ev:
+        assert e["lane"] == lanes[e["midi"]]

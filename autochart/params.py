@@ -34,6 +34,11 @@ class Params:
     sustain_min_gap_beats: float = 0.75
     sustain_min_ring_beats: float = 0.6
     big_chord_ring_beats: float = 1.8                  # accented chords ringing this long get 3 notes
+    # --- palm-muted chugs (opt-in): runs of >= mute_min_run same-root notes <= half a beat apart where the
+    # guitar shows a strong 8th picking pulse (Tagada verse: 5.3 vs ~1.3 in ringing parts)
+    muted_singles: bool = False
+    mute_ratio8: float = 2.5
+    mute_min_run: int = 4
     # --- lanes
     lane_block_bars: int = 2
     # --- difficulties: min gap between kept notes (seconds, ticks), tighter "important" gap, lanes, width

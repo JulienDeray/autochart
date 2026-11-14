@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Alfred Tapper</title>
+<style>
+  :root { --bg:#111418; --panel:#1b2027; --text:#e8eaed; --dim:#8a919c; --accent:#f5b942; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.45 system-ui, Segoe UI, sans-serif; background:var(--bg); color:var(--text); }
+  main { max-width: 860px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--dim); margin-bottom: 20px; }
+  section { background: var(--panel); border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+  section h2 { font-size: 15px; margin: 0 0 10px; color: var(--accent); text-transform: uppercase; letter-spacing: .06em; }
+  button { font: inherit; padding: 8px 14px; border-radius: 7px; border: 0; background: #2d3540; color: var(--text); cursor: pointer; margin-right: 6px; }
+  button.primary { background: var(--accent); color: #111; font-weight: 600; }
+  button:disabled { opacity: .4; cursor: default; }
+  input[type=text], input[type=number] { font: inherit; background:#0d1014; color:var(--text); border:1px solid #333b46; border-radius:6px; padding:6px 8px; width: 90px; }
+  .row { display:flex; gap: 14px; align-items:center; flex-wrap: wrap; margin: 6px 0; }
+  .lanes { display:flex; gap: 12px; justify-content:center; margin: 18px 0 8px; }
+  .lane { width: 92px; height: 92px; border-radius: 50%; border: 4px solid; display:flex; align-items:center; justify-content:center;
+          font-size: 22px; font-weight: 700; opacity:.35; transition: opacity .03s, transform .03s; }
+  .lane.on { opacity: 1; transform: scale(1.08); }
+  .l0 { border-color:#2ecc40; color:#2ecc40 } .l0.on { background:#2ecc4033 }
+  .l1 { border-color:#ff4136; color:#ff4136 } .l1.on { background:#ff413633 }
+  .l2 { border-color:#ffdc00; color:#ffdc00 } .l2.on { background:#ffdc0033 }
+  .l3 { border-color:#0074d9; color:#3b9cff } .l3.on { background:#0074d933 }
+  .l4 { border-color:#ff851b; color:#ff851b } .l4.on { background:#ff851b33 }
+  .big { font-size: 30px; font-variant-numeric: tabular-nums; text-align:center; }
+  .dim { color: var(--dim); }
+  .ok { color: #2ecc40; } .warn { color: #ffb347; }
+  table { width:100%; border-collapse: collapse; } td, th { text-align:left; padding: 4px 6px; border-bottom: 1px solid #2a313b; }
+  .beat { width: 22px; height: 22px; border-radius:50%; background:#333; display:inline-block; margin: 0 3px; }
+  .beat.on { background: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Alfred Tapper</h1>
+  <div class="sub">Play the song on your keyboard the way it <i>should</i> feel in the game. Every press and release is recorded with its exact time.</div>
+
+  <section>
+    <h2>1 · Song</h2>
+    <div class="row">
+      <input type="file" id="file" accept="audio/*,.ogg,.opus,.mp3,.wav">
+      <span id="songInfo" class="dim">Pick the audio file (e.g. cherry_bomb.ogg).</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · Keys</h2>
+    <div class="row">
+      <label>Green / Red / Yellow / Blue / Orange keys:
+        <input type="text" id="keys" value="asdfg" style="width:110px"></label>
+      <span class="dim">Five characters, same as your YARG keyboard binding if you like (e.g. <b>asdfg</b> or <b>12345</b>).</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · Calibrate (once)</h2>
+    <div class="dim">You'll hear 4 count-in clicks, then 16 clicks. Tap <b>any lane key</b> exactly on each click. This measures your keyboard + audio + reflex lag, so your taps line up with the music.</div>
+    <div class="row" style="margin-top:10px">
+      <button id="calBtn">Start calibration</button>
+      <span id="beats"></span>
+      <span id="calInfo" class="dim">Not calibrated.</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>4 · Play</h2>
+    <div class="row">
+      <button id="playBtn" class="primary" disabled>Start pass</button>
+      <button id="stopBtn" disabled>Stop</button>
+      <label>Start at <input type="number" id="startAt" value="0" min="0" step="1"> s</label>
+      <span class="dim">Space = start/stop</span>
+    </div>
+    <div class="big" id="clock">0:00.0</div>
+    <div class="lanes">
+      <div class="lane l0" id="ln0">G</div><div class="lane l1" id="ln1">R</div><div class="lane l2" id="ln2">Y</div>
+      <div class="lane l3" id="ln3">B</div><div class="lane l4" id="ln4">O</div>
+    </div>
+    <div class="dim" style="text-align:center">Hold a key for a sustained note. Press several keys together for a chord. Don't aim for perfection: play it 2–3 times, the overlaps are what count.</div>
+  </section>
+
+  <section>
+    <h2>5 · Passes</h2>
+    <table id="passes"><tr><th>#</th><th>From</th><th>Length</th><th>Notes</th><th></th></tr></table>
+    <div class="row" style="margin-top:12px">
+      <button id="exportBtn" class="primary" disabled>Download recording (.json)</button>
+      <button id="clearBtn">Clear all passes</button>
+      <span class="dim">Then send the file to Alfred (Telegram or Drive). Passes are also kept in this browser until you clear them.</span>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let ctx = null, buffer = null, songName = null, songDuration = 0;
+let source = null, startCtxTime = 0, startOffset = 0, playing = false, current = null;
+let calMs = parseFloat(localStorage.getItem("tapper.calMs"));
+let calDone = !isNaN(calMs);
+let passes = JSON.parse(localStorage.getItem("tapper.passes") || "[]");
+const held = {};
+
+function audio() {
+  if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: "interactive" });
+  return ctx;
+}
+
+// Time (in context seconds) that is being HEARD at a given performance.now() timestamp.
+function heardCtxTime(perfMs) {
+  const ts = ctx.getOutputTimestamp ? ctx.getOutputTimestamp() : null;
+  if (ts && ts.performanceTime) return ts.contextTime + (perfMs - ts.performanceTime) / 1000;
+  return ctx.currentTime - (ctx.outputLatency || ctx.baseLatency || 0) + (perfMs - performance.now()) / 1000;
+}
+
+function fmt(t) { const m = Math.floor(t / 60), s = t - 60 * m; return `${m}:${s.toFixed(1).padStart(4, "0")}`; }
+function keymap() { return $("keys").value.toLowerCase().slice(0, 5).split(""); }
+function save() { localStorage.setItem("tapper.passes", JSON.stringify(passes)); }
+
+function refreshCal() {
+  $("calInfo").innerHTML = calDone ? `<span class="ok">Calibrated: you tap ${calMs >= 0 ? "+" : ""}${calMs.toFixed(0)} ms vs what you hear (corrected automatically).</span>` : "Not calibrated.";
+  $("playBtn").disabled = !(buffer && calDone);
+}
+
+function refreshPasses() {
+  const t = $("passes");
+  t.innerHTML = "<tr><th>#</th><th>Song</th><th>From</th><th>Length</th><th>Notes</th><th></th></tr>";
+  passes.forEach((p, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${i + 1}</td><td>${p.song}</td><td>${fmt(p.start)}</td><td>${fmt(p.end - p.start)}</td><td>${p.events.length}</td><td><button data-i="${i}">delete</button></td>`;
+    tr.querySelector("button").onclick = () => { passes.splice(i, 1); save(); refreshPasses(); };
+    t.appendChild(tr);
+  });
+  $("exportBtn").disabled = passes.length === 0;
+}
+
+$("file").onchange = async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  $("songInfo").textContent = "Decoding…";
+  try {
+    buffer = await audio().decodeAudioData(await f.arrayBuffer());
+    songName = f.name; songDuration = buffer.duration;
+    $("songInfo").innerHTML = `<span class="ok">${f.name}</span> · ${fmt(buffer.duration)}`;
+  } catch (err) {
+    $("songInfo").innerHTML = `<span class="warn">Could not decode this file (${err}). Try the .ogg or a .wav.</span>`;
+    buffer = null;
+  }
+  refreshCal();
+};
+
+// ---------------------------------------------------------------- calibration
+$("calBtn").onclick = async () => {
+  const c = audio(); await c.resume();
+  const bpm = 100, period = 60 / bpm, t0 = c.currentTime + 0.6, n = 20;
+  const clicks = [];
+  for (let i = 0; i < n; i++) {
+    const t = t0 + i * period;
+    const o = c.createOscillator(), g = c.createGain();
+    o.frequency.value = i < 4 ? 660 : 1000;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.6, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    o.connect(g).connect(c.destination); o.start(t); o.stop(t + 0.08);
+    if (i >= 4) clicks.push(t);
+  }
+  const taps = [];
+  $("calInfo").textContent = "Listening… tap on each click (after the 4 count-in clicks).";
+  $("beats").innerHTML = Array.from({ length: 4 }, () => '<span class="beat"></span>').join("");
+  const dots = [...$("beats").children];
+  const anim = setInterval(() => {
+    const k = Math.floor((c.currentTime - t0) / period);
+    dots.forEach((d, j) => d.classList.toggle("on", k >= 0 && k % 4 === j));
+  }, 15);
+  const onKey = ev => { if (ev.repeat) return; taps.push(heardCtxTime(ev.timeStamp)); };
+  window.addEventListener("keydown", onKey);
+  setTimeout(() => {
+    window.removeEventListener("keydown", onKey); clearInterval(anim); $("beats").innerHTML = "";
+    const errs = [];
+    for (const tp of taps) {
+      let best = null;
+      for (const cl of clicks) if (best === null || Math.abs(tp - cl) < Math.abs(best)) best = tp - cl;
+      if (best !== null && Math.abs(best) < period / 2) errs.push(best * 1000);
+    }
+    if (errs.length < 10) { $("calInfo").innerHTML = `<span class="warn">Only ${errs.length} usable taps, try again.</span>`; return; }
+    errs.sort((a, b) => a - b);
+    calMs = errs[Math.floor(errs.length / 2)];
+    const spread = errs[Math.floor(errs.length * 0.75)] - errs[Math.floor(errs.length * 0.25)];
+    calDone = true; localStorage.setItem("tapper.calMs", calMs); localStorage.setItem("tapper.calSpread", spread);
+    refreshCal();
+  }, (0.6 + n * period + 0.8) * 1000);
+};
+
+// ---------------------------------------------------------------- playing
+function songTimeAt(perfMs) { return heardCtxTime(perfMs) - startCtxTime + startOffset - calMs / 1000; }
+
+async function startPass() {
+  if (!buffer || playing) return;
+  const c = audio(); await c.resume();
+  startOffset = Math.max(0, Math.min(parseFloat($("startAt").value) || 0, songDuration - 1));
+  source = c.createBufferSource(); source.buffer = buffer; source.connect(c.destination);
+  startCtxTime = c.currentTime + 0.3;
+  source.start(startCtxTime, startOffset);
+  playing = true;
+  current = { song: songName, start: startOffset, end: startOffset, calMs, keymap: keymap().join(""),
+              recordedAt: new Date().toISOString(), events: [] };
+  source.onended = () => stopPass();
+  $("playBtn").disabled = true; $("stopBtn").disabled = false;
+  tick();
+}
+
+function stopPass() {
+  if (!playing) return;
+  playing = false;
+  try { source.stop(); } catch (e) {}
+  const now = songTimeAt(performance.now()) + calMs / 1000;
+  for (const lane in held) { if (held[lane]) { held[lane].up = now; delete held[lane]; } }
+  current.end = Math.min(now, songDuration);
+  current.events = current.events.filter(e => e.down >= current.start - 0.5);
+  if (current.events.length && current.end > current.start + 1) { passes.push(current); save(); }
+  current = null;
+  for (let i = 0; i < 5; i++) $("ln" + i).classList.remove("on");
+  $("playBtn").disabled = false; $("stopBtn").disabled = true;
+  refreshPasses();
+}
+
+function tick() {
+  if (!playing) return;
+  $("clock").textContent = fmt(Math.max(0, ctx.currentTime - startCtxTime + startOffset));
+  requestAnimationFrame(tick);
+}
+
+window.addEventListener("keydown", ev => {
+  if (ev.code === "Space" && document.activeElement.tagName !== "INPUT") {
+    ev.preventDefault(); playing ? stopPass() : startPass(); return;
+  }
+  const lane = keymap().indexOf(ev.key.toLowerCase());
+  if (lane < 0 || ev.repeat) return;
+  $("ln" + lane).classList.add("on");
+  if (!playing || !current) return;
+  const e = { lane, down: +songTimeAt(ev.timeStamp).toFixed(4), up: null };
+  current.events.push(e); held[lane] = e;
+});
+window.addEventListener("keyup", ev => {
+  const lane = keymap().indexOf(ev.key.toLowerCase());
+  if (lane < 0) return;
+  $("ln" + lane).classList.remove("on");
+  if (held[lane]) { held[lane].up = +songTimeAt(ev.timeStamp).toFixed(4); delete held[lane]; }
+});
+
+$("playBtn").onclick = startPass;
+$("stopBtn").onclick = stopPass;
+$("clearBtn").onclick = () => { if (confirm("Delete all recorded passes?")) { passes = []; save(); refreshPasses(); } };
+$("exportBtn").onclick = () => {
+  const data = { tool: "alfred-tapper", version: 1, exportedAt: new Date().toISOString(), userAgent: navigator.userAgent,
+                 calMs, calSpreadMs: parseFloat(localStorage.getItem("tapper.calSpread")), passes };
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
+  const songs = [...new Set(passes.map(p => p.song.replace(/\.[^.]+$/, "")))].join("+");
+  a.download = `tapper_${songs}_${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.json`;
+  a.click();
+};
+refreshCal(); refreshPasses();
+</script>
+</body>
+</html>

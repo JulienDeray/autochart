@@ -154,6 +154,26 @@ kept, in ticks and in seconds. Important notes may use a tighter gap. Also:
 
 Lanes are recomputed for 4 and 3 frets with the same method as Expert, so the movement stays consistent.
 
+## 7b. Your own feel (optional)
+
+`--muted-singles` finds palm-muted chugs: runs of 4 or more same-root notes, half a beat apart or closer,
+where the guitar shows a strong 8th picking pulse. The pulse ratio is 5.3 in a muted verse against about
+1.3 in ringing parts. The stem's decay and brightness did not separate the two. These chugs become single
+notes on Expert, and only the on-beat notes are kept on lower levels. Official charts chord them, so
+this is off by default.
+
+`--taps` reads Alfred Tapper passes (`autochart/guide.py`). Strums are kept when two passes agree. Each
+2-bar window becomes one of three kinds:
+- **Held**: a few long chords. The tap only says that a big chord sits there. The chord itself is read
+  from the bass plus the guitar's power-chord pitch class over the whole hold. Reading only the first
+  0.2 s still hears the previous chord ringing, which made lanes jump. The start is the 16th, within
+  0.25 s of the tap, that best separates "not this chord" before from "this chord" after. All held
+  chords of the song share one chord-to-lane map.
+- **Style**: a riff. The player's notes are kept as played.
+- **Empty**: the automatic chart.
+
+Against an official chart, a tap-guided chart scores lower. It is a taste, not a style standard.
+
 ## 8. Output
 
 `notes.chart` (text format of Moonscraper / Clone Hero, CRLF), `song.ini` (`diff_guitar` must be ≥ 0 or

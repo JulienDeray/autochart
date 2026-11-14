@@ -69,6 +69,24 @@ autochart evaluate reference/*.sng --json scores.json
 autochart pack "Band - Song/" --out charts/
 ```
 
+### Chart it your way
+
+Official charts keep palm-muted chugs as chords and fill big-chord sections with notes. If you hear the
+song differently:
+
+```bash
+# palm-muted chugs as single notes on Expert, on-the-beat notes on lower levels
+autochart generate song.wav --artist "Band" --title "Song" --muted-singles
+
+# play the song yourself on the keyboard first (tools/tapper.html, 2-3 passes), then:
+autochart generate song.wav --artist "Band" --title "Song" --taps my_recording.json
+```
+
+With `--taps`, the parts where you played a riff use your riff: your rhythm, your lanes, your single notes
+and chords. The parts where you held big chords become big held chords. Each chord is re-read from the
+audio, so it gets the right lanes and starts where the chord really starts, not where you tapped. The
+rest is charted automatically. See [tools/README.txt](tools/README.txt).
+
 Then copy the `.sng` into YARG's (or Clone Hero's) songs folder and rescan.
 
 Expect about two minutes per three-minute song on a laptop CPU, most of it in source separation. Stems
@@ -104,8 +122,9 @@ musically placed, tuned on distorted rock. All of it, with symptoms and causes:
 ## Project layout
 
 ```
-autochart/        the package: audio, beatgrid, grid, onsets, pitch, arrange, chart, sng, chartio,
+autochart/        the package: audio, beatgrid, grid, onsets, pitch, arrange, guide, chart, sng, chartio,
                   pipeline, evaluate, cli, params (all tunable constants, documented)
+tools/            tapper.html: record your own feel for --taps
 tests/            unit tests (fast, no models) + an optional end-to-end determinism test
 docs/             HOW_IT_WORKS, EVALUATION, LIMITATIONS
 ```

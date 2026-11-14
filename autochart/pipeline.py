@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 import librosa
 
-from . import __version__, arrange, audio, beatgrid, chart, onsets, pitch, sng
+from . import __version__, arrange, audio, beatgrid, chart, guide, onsets, pitch, sng
 from .chart import DIFF_ORDER
 from .grid import Grid
 from .params import DEFAULT, SR, STEMS, Params
@@ -23,8 +23,9 @@ class Result:
     events: list        # Expert-level note events with all analysis fields (for debugging)
 
 
-def analyse(audio_path: str, stems: dict[str, str], cache_dir: str, p: Params = DEFAULT):
-    """Everything except writing files. Returns (grid, beat_info, events, difficulties)."""
+def analyse(audio_path: str, stems: dict[str, str], cache_dir: str, p: Params = DEFAULT, taps: dict | None = None):
+    """Everything except writing files. Returns (grid, beat_info, events, difficulties).
+    taps: optional Alfred Tapper export (see guide.py)."""
     y_mix, sr = librosa.load(audio_path, sr=SR, mono=True)
     y_drums, _ = librosa.load(stems["drums"], sr=SR, mono=True)
     y_gtr, _ = librosa.load(stems["guitar"], sr=SR, mono=True)
@@ -36,10 +37,20 @@ def analyse(audio_path: str, stems: dict[str, str], cache_dir: str, p: Params = 
     events = onsets.detect_events(y_gtr, sr, grid, (g_onset, g_times), p)
     if not events:
         raise RuntimeError("no guitar notes detected: is there a guitar in this song?")
+    if taps:
+        gd = guide.build_guide(taps, info["bpm"])
+        info["guide"] = {"passes": gd["passes"], "held": gd["held"], "style": gd["style"]}
+        song_end = events[-1]["t"] + 0.3  # detect_events already stops where the guitar does
+        events = guide.apply_guide(events, gd, grid, period)
+        events = guide.refine_held(events, (g_note, g_times), (b_note, b_times), grid, period)
+        events = [e for e in events if e["t"] <= song_end]
     events = pitch.add_pitch(events, (g_note, g_times), (b_note, b_times), p)
     events = pitch.fold_octaves(events)
+    events = guide.held_pitch(events)
+    events = arrange.mark_muted(events, p)
     events = arrange.shape_events(events, period, p)
     events = arrange.assign_lanes(events, block_bars=p.lane_block_bars)
+    events = guide.held_lanes(events)
     diffs = {lvl: arrange.reduce(events, lvl, p) for lvl in DIFF_ORDER}
     info["duration"] = len(y_mix) / sr
     return grid, info, events, diffs
@@ -52,7 +63,7 @@ def safe_name(s: str) -> str:
 def generate(audio_path: str, artist: str, title: str, out_dir: str = ".", *, cache_dir: str = "cache",
              album: str = "", year: str = "", genre: str = "Rock", charter: str = "autochart",
              fmt: str = "sng", stems: dict[str, str] | None = None, render: bool = True,
-             p: Params = DEFAULT) -> Result:
+             p: Params = DEFAULT, taps: dict | None = None) -> Result:
     if not os.path.isfile(audio_path):
         raise FileNotFoundError(f"audio file not found: {audio_path}")
     if fmt not in ("sng", "folder"):
@@ -65,7 +76,7 @@ def generate(audio_path: str, artist: str, title: str, out_dir: str = ".", *, ca
     missing = [s for s in STEMS if s not in stems or not os.path.exists(stems[s])]
     if missing:
         raise FileNotFoundError(f"missing stems: {missing}")
-    grid, info, events, diffs = analyse(audio_path, stems, cache_dir, p)
+    grid, info, events, diffs = analyse(audio_path, stems, cache_dir, p, taps)
 
     charter_full = f"{charter} (autochart {__version__})"
     meta = {"autochart": __version__, "pad": round(grid.pad, 4), **info, "notes": {k: len(v) for k, v in diffs.items()},

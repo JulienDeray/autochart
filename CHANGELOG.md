@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0
+- `--taps`: chart a song your way from an Alfred Tapper recording (`tools/tapper.html`, new `guide` module).
+  Riffs you played are kept as played. Big held chords are re-read from the audio over the whole hold
+  (bass + guitar power-chord root), start where the chord really changes, and keep one chord-to-lane map
+  for the whole song. Playtested on Tagada Jones, Instinct sauvage: "really good".
+- `--muted-singles`: palm-muted chugs become single notes on Expert and on-the-beat notes on lower levels.
+  Off by default, because official charts chord them (chord accuracy -0.06 to -0.14 on the benchmark).
+- Default charts are unchanged.
+
 ## 1.3.0
 - No stray notes after the song ends: notes stop 0.3 s after the guitar's last sustained activity
   (1 s-smoothed level above -30 dB). Found by playtesting the end of Instinct sauvage (Tagada Jones).

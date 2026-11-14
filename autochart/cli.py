@@ -10,11 +10,16 @@ from . import __version__
 
 
 def _generate(a):
+    import dataclasses
+    from .guide import load_taps
+    from .params import DEFAULT
     from .pipeline import generate
+    p = dataclasses.replace(DEFAULT, muted_singles=a.muted_singles)
+    taps = load_taps(a.taps) if a.taps else None
     for path in a.audio:
         title = a.title or os.path.splitext(os.path.basename(path))[0]
         r = generate(path, a.artist, title, a.out, cache_dir=a.cache, album=a.album, year=a.year, genre=a.genre,
-                     charter=a.charter, fmt=a.format, render=not a.no_audio)
+                     charter=a.charter, fmt=a.format, render=not a.no_audio, p=p, taps=taps)
         n = r.meta["notes"]
         print(f"{r.path}\n  {r.meta['bpm']:.2f} BPM ({r.meta['mode']}), notes E/H/M/E "
               f"{n['Expert']}/{n['Hard']}/{n['Medium']}/{n['Easy']}")
@@ -95,6 +100,9 @@ def main(argv=None):
     g.add_argument("--out", default=".", help="output directory")
     g.add_argument("--cache", default=os.environ.get("AUTOCHART_CACHE", "cache"), help="stems/transcription cache")
     g.add_argument("--no-audio", action="store_true", help="chart only, skip song.ogg/guitar.ogg")
+    g.add_argument("--muted-singles", action="store_true",
+                   help="palm-muted chugs as single notes (Expert) and on-the-beat notes (lower levels)")
+    g.add_argument("--taps", help="Alfred Tapper recording (tools/tapper.html) of this song: chart it your way")
     g.set_defaults(fn=_generate)
 
     e = sub.add_parser("evaluate", help="score the generator against human charts (.sng or folders with audio)")
@@ -117,6 +125,8 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if a.cmd == "generate" and a.title and len(a.audio) > 1:
         ap.error("--title only works with a single audio file")
+    if a.cmd == "generate" and a.taps and len(a.audio) > 1:
+        ap.error("--taps only works with a single audio file")
     try:
         a.fn(a)
     except (FileNotFoundError, RuntimeError, ValueError) as exc:

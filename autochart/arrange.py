@@ -16,6 +16,8 @@ Easy = one per two beats (measured on Harmonix/Neversoft charts). Notes are rank
 (downbeat > beat > 8th > 16th, accents, pitch changes, held notes) and kept greedily while respecting a
 minimum gap; important notes (pitch change, accent, sustain) may use a tighter gap. Medium uses 4 lanes
 and only keeps chords that have a beat of space around them, Easy uses 3 lanes and no chords.
+
+**Palm mutes (opt-in)** are single notes on Expert and only the on-beat notes on lower levels.
 """
 from __future__ import annotations
 
@@ -24,6 +26,26 @@ from itertools import combinations
 import numpy as np
 
 from .params import RES, Params
+
+
+def mark_muted(events: list[dict], p: Params) -> list[dict]:
+    """Palm-muted chugs (only with p.muted_singles). Official charts keep these as chords; some players
+    hear them as single muted notes on the beat. Decay and brightness of the stem did not separate muted
+    from ringing parts (Demucs output is compressed); only the 8th picking pulse did."""
+    if not p.muted_singles:
+        return events
+    i = 0
+    while i < len(events):
+        j = i
+        while (j + 1 < len(events) and events[j + 1]["midi"] == events[i]["midi"]
+               and events[j + 1]["tick"] - events[j]["tick"] <= RES // 2):
+            j += 1
+        run = events[i:j + 1]
+        if len(run) >= p.mute_min_run and np.median([e.get("r8", 0) for e in run]) >= p.mute_ratio8:
+            for e in run:
+                e["muted"] = True
+        i = j + 1
+    return events
 
 
 def shape_events(events: list[dict], period: float, p: Params) -> list[dict]:
@@ -38,6 +60,10 @@ def shape_events(events: list[dict], period: float, p: Params) -> list[dict]:
             width = 3 if (e["accent"] and big) else 2
         if e["stab"]:  # the "boom" hits of a riff are always chords
             width = max(width, 3 if big else 2)
+        if e.get("muted") and not e["stab"]:
+            width = 1
+        if e.get("fixed"):  # the player's own shape (guide style windows)
+            width = len(e["fixed"])
         e["width"] = width
     return events
 
@@ -100,7 +126,8 @@ def reduce(events: list[dict], level: str, p: Params) -> list[tuple[int, list[in
         for e in events:
             prev[id(e)], last = last, e["midi"]
         taken, chosen = [], []
-        for e in sorted(events, key=lambda e: -_priority(e, prev[id(e)])):
+        pool = [e for e in events if not (e.get("muted") and e["mc"] >= 2)]  # muted chugs: on the beat only
+        for e in sorted(pool, key=lambda e: -_priority(e, prev[id(e)])):
             imp = e["accent"] or e["sus_t"] > 0 or (prev[id(e)] is not None and prev[id(e)] != e["midi"])
             gk = cfg["gap_k_imp"] if imp else cfg["gap_k"]
             if all(abs(e["t"] - t) >= cfg["gap_s"] - 1e-6 and abs(e["tick"] - k) >= gk
@@ -136,5 +163,13 @@ def reduce(events: list[dict], level: str, p: Params) -> list[tuple[int, list[in
             sus = int(sus_ticks // (RES // 8)) * (RES // 8)
             if sus < RES // 4:
                 sus = 0
-        out.append((e["tick"], list(range(e["lane_d"], e["lane_d"] + e["w"])), sus))
+        lanes = list(range(e["lane_d"], e["lane_d"] + e["w"]))
+        n = cfg["lanes"]
+        if e.get("root_pc") is not None and n < 5:
+            # guided held chords keep the song-wide chord order: Medium = single notes G R Y B, Easy = 3 lanes
+            lanes = [min(e["lane"], n - 1)] if n == 4 else [int(round(e["lane"] * (n - 1) / 3))]
+        if e.get("fixed"):  # the player's own lanes, squeezed onto this level's lane count
+            fl = sorted({int(round(f * (n - 1) / 4)) for f in e["fixed"]})
+            lanes = fl[:max(1, min(e["w"], cfg["width"]))]
+        out.append((e["tick"], lanes, sus))
     return out
