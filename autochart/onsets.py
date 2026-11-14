@@ -16,6 +16,7 @@ must be a local peak. Then:
   picking pulse, so genuine chugs between accents survive.
 * **Smears**: a pitch-only note one 16th before a much louder real attack is the same hit seen twice;
   only the attack is kept.
+* **Outro**: nothing after the guitar's last sustained activity (no stray notes once the song is over).
 * For each kept note: how long the guitar keeps ringing (sustains), and whether it is accented.
 """
 from __future__ import annotations
@@ -80,11 +81,24 @@ def detect_events(y_g: np.ndarray, sr: int, grid: Grid, bp_onsets, p: Params) ->
         events.append({"t": float(t), "tick": int(tk), "mc": mc, "strength": float(norm[i]), "flux": bool(flux_ok),
                        "abs": float(absv[i]), "r8": float(ratio8[i]), "stab": stab})
 
+    events = _trim_outro(events, et, rms)
     events = _clean_around_stabs(events, p)
     events = _drop_smears(events, p)
     _measure_ring(events, et, rms)
     _mark_accents(events)
     return events
+
+
+def _trim_outro(events, et, rms):
+    """Drop notes after the guitar is done: last time its 1 s-smoothed level is above -30 dB, + 0.3 s.
+    Outro noise / feedback after the last chord produced stray notes once the song was over."""
+    from scipy.ndimage import uniform_filter1d
+    smooth = uniform_filter1d(rms, size=max(1, int(1.0 / (et[1] - et[0]))), mode="nearest")
+    active = np.flatnonzero(smooth > -30)
+    if not len(active):
+        return events
+    last = et[active[-1]] + 0.3
+    return [e for e in events if e["t"] <= last]
 
 
 def _clean_around_stabs(events, p: Params):

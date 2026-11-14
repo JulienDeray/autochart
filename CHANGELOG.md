@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.0
+- No stray notes after the song ends: notes stop 0.3 s after the guitar's last sustained activity
+  (1 s-smoothed level above -30 dB). Found by playtesting the end of Instinct sauvage (Tagada Jones).
+
 ## 1.2.0
 - No more double hit on syncopated big chords: when Basic Pitch reports a note on the beat and the guitar's
   real attack lands one 16th later (and is clearly louder), only the attack is kept. Found by playtesting
